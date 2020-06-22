@@ -42,7 +42,7 @@ class Conn2db
     /**
      * Function __constructor.
      *
-     * Función que carga la conexión a la base de datos
+     * Función que carga la conexión a la base de datos.
      **/
     public function __construct()
     {
@@ -94,7 +94,7 @@ class Conn2db
     /**
      * Function binder.
      *
-     * Funcion recorre los parametros y los añade al arreglo despues de bindearlos
+     * Función recorre los parametros y los añade al arreglo despues de bindearlos.
      *
      * @param string $param
      * @param string $value
@@ -107,9 +107,9 @@ class Conn2db
     }
 
     /**
-     * Function lastId
+     * Function lastId.
      *
-     * Retorna el ultimo ID insertado en una transacción.
+     * Función retorna el ultimo ID insertado en una transacción.
      *
      * @return string - El ultimo ID insertado
      **/
@@ -119,9 +119,9 @@ class Conn2db
     }
 
     /**
-     * Function close
+     * Function close.
      *
-     * Cierra la conexión con el servidor de base de datos
+     * Cierra la conexión con el servidor de base de datos.
      **/
     public function close()
     {
@@ -131,7 +131,7 @@ class Conn2db
     /**
      * Function connection.
      *
-     * Configura y establece la conexión a la base de datos.
+     * Función que configura y establece la conexión a la base de datos.
      **/
     protected function connection()
     {
@@ -156,7 +156,7 @@ class Conn2db
     /**
      * Function prepareSQL.
      *
-     * Funcion que genera una consulta preparada a la base de datos
+     * Función que genera una consulta preparada a la base de datos.
      *
      * @param string $sql
      * @param array  $params
@@ -201,8 +201,8 @@ class Conn2db
     }
 
     /**
-     * Function addParams
-     * Funcion que agrega un parametro bindeado a la consulta.
+     * Function addParams.
+     * Función que agrega un parametro bindeado a la consulta.
      *
      * @param array $paramsArray
      *
