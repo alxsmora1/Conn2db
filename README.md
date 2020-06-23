@@ -26,7 +26,7 @@ Para acceder a las funciones de la conexión de base de datos y acceder a las va
 require 'vendor/autoload.php';
 
 use Symfony\Component\Dotenv\Dotenv;
-use Nimter\Helper\Conn2db;
+use Nimter\Helper\Conn2db\Conn2db;
 
 $dotenv = new Dotenv();
 $dotenv->load(__DIR__.'/.env');

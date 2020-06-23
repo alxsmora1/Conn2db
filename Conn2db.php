@@ -4,10 +4,10 @@
  *
  * @author Alexis Mora <alexis.mora1v@gmail.com>
  *
- * @version 1.0.0
+ * @version 1.0.2
  */
 
-namespace Nimter\Helper;
+namespace Nimter\Helper\Conn2db;
 
 /**
  * Class Conn2db.
@@ -46,15 +46,15 @@ class Conn2db
      **/
     public function __construct()
     {
-        $this->DBdriver = getenv('DB_DRIVER');
-        $this->DBhost = getenv('DB_HOST');
-        $this->DBport = getenv('DB_PORT');
-        $this->DBname = getenv('DB_NAME');
-        $this->DBuser = getenv('DB_USER');
-        $this->DBpwd = getenv('DB_PWD');
-        $this->DBCodification = getenv('DB_CODIFICATION');
-        $this->DBLocale = getenv('DB_LOCALE');
-        $this->params = [];
+        $this->DBdriver = $_ENV['DB_DRIVER'];
+        $this->DBhost   = $_ENV['DB_HOST'];
+        $this->DBport   = $_ENV['DB_PORT'];
+        $this->DBname   = $_ENV['DB_NAME'];
+        $this->DBuser   = $_ENV['DB_USER'];
+        $this->DBpwd    = $_ENV['DB_PWD'];
+        $this->DBCodification    = $_ENV['DB_CODIFICATION'];
+        $this->DBLocale = $_ENV['DB_LOCALE'];
+        $this->params   = [];
         $this->connection();
     }
 
