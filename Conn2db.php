@@ -67,7 +67,7 @@ class Conn2db
      * @param array  $params
      * @param string $fetchmode
      *
-     * @return void
+     * @return mixed
      **/
     public function query($sql, $params = null, $fetchmode = \PDO::FETCH_ASSOC)
     {
