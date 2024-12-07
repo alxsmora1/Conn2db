@@ -1,13 +1,17 @@
 <?php
 /**
- * PHP versión 7.3.0.
+ * PHP versión 8.1.0.
  *
  * @author Alexis Mora <alexis.mora1v@gmail.com>
  *
- * @version 1.0.2
+ * @version 1.0.5
  */
 
 namespace Nimter\Helper\Conn2db;
+
+use PDO;
+use PDOException;
+use Exception;
 
 /**
  * Class Conn2db.
@@ -17,9 +21,9 @@ namespace Nimter\Helper\Conn2db;
 class Conn2db
 {
     // @var, Driver de la base de datos
-    protected $driver;
+    protected $DBdriver;
     // @var, Host de la base de datos
-    protected $host;
+    protected $DBhost;
     // @var, Puerto de conexión de la base de datos
     protected $DBport;
     // @var, Nombre de la base de datos
@@ -36,59 +40,55 @@ class Conn2db
     protected $pdo;
     // @array, Parametros para la consulta
     protected $params;
+    // @object, PDOStatement
+    protected $stmt;
     // @bool, Estado de la conexión
     protected $connection = false;
 
-    /**
-     * Function __constructor.
+/**
+     * Constructor.
      *
-     * Función que carga la conexión a la base de datos.
-     **/
+     * Initializes the database connection.
+     */
     public function __construct()
     {
-        $this->DBdriver = $_ENV['DB_DRIVER'];
-        $this->DBhost   = $_ENV['DB_HOST'];
-        $this->DBport   = $_ENV['DB_PORT'];
-        $this->DBname   = $_ENV['DB_NAME'];
-        $this->DBuser   = $_ENV['DB_USER'];
-        $this->DBpwd    = $_ENV['DB_PWD'];
-        $this->DBCodification    = $_ENV['DB_CODIFICATION'];
-        $this->DBLocale = $_ENV['DB_LOCALE'];
-        $this->params   = [];
-        $this->connection();
+        $this->DBdriver = getenv('DB_DRIVER');
+        $this->DBhost = getenv('DB_HOST');
+        $this->DBport = getenv('DB_PORT');
+        $this->DBname = getenv('DB_NAME');
+        $this->DBuser = getenv('DB_USER');
+        $this->DBpwd = getenv('DB_PWD');
+        $this->DBCodification = getenv('DB_CODIFICATION');
+        $this->DBLocale = getenv('DB_LOCALE');
+        $this->params = [];
+        $this->connect();
     }
 
     /**
-     * Function query.
-     *
-     * Función que genera los resultados de la consulta y completa las funciones de la clase.
+     * Executes a query and returns the results.
      *
      * @param string $sql
-     * @param array  $params
+     * @param array|null $params
      * @param string $fetchmode
      *
      * @return mixed
-     **/
-    public function query($sql, $params = null, $fetchmode = \PDO::FETCH_ASSOC)
+     */
+    public function query($sql, $params = null, $fetchmode = PDO::FETCH_ASSOC)
     {
-        $sql = trim(str_replace("\r", ' ', $sql));
-
-        $this->prepareSQL($sql, $params);
-
-        $rawStmt = explode(' ', preg_replace("/\s+|\t+|\n+/", ' ', $sql));
-
-        //Determina el tipo de consulta y entrega el resultado adecuado dependiendo de la consulta
-        $cleanStmt = strtolower($rawStmt[0]);
-
-        if ('select' === $cleanStmt || 'show' === $cleanStmt) {
-            return $this->stmt->fetchAll($fetchmode);
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            if ($params) {
+                foreach ($params as $key => $value) {
+                    $stmt->bindValue($key, $value);
+                }
+            }
+            $stmt->execute();
+            return $stmt->fetchAll($fetchmode);
+        } catch (PDOException $e) {
+            // Log the error message
+            error_log("Query error: " . $e->getMessage());
+            throw new Exception("Query error");
         }
-
-        if ('insert' === $cleanStmt || 'update' === $cleanStmt || 'delete' === $cleanStmt) {
-            return $this->stmt->rowCount();
-        }
-
-        return null;
     }
 
     /**
@@ -119,102 +119,36 @@ class Conn2db
     }
 
     /**
-     * Function close.
-     *
-     * Cierra la conexión con el servidor de base de datos.
-     **/
+     * Closes the connection to the database server.
+     */
     public function close()
     {
-        $this->pdo = null;
+        try {
+            $this->pdo = null;
+            $this->connection = false;
+            // Log the successful closure of the connection
+            error_log("Database connection closed successfully.");
+        } catch (Exception $e) {
+            // Log any errors that occur during the closure
+            error_log("Error closing database connection: " . $e->getMessage());
+            throw new Exception("Error closing database connection");
+        }
     }
 
     /**
-     * Function connection.
-     *
-     * Función que configura y establece la conexión a la base de datos.
-     **/
-    protected function connection()
+     * Establishes the database connection using PDO.
+     */
+    private function connect()
     {
         try {
-            $connector = $this->DBdriver.':host='.$this->DBhost.';dbname='.$this->DBname.';charset='.$this->DBCodification;
-
-            $attributes = [
-                \PDO::ATTR_PERSISTENT => false,
-                \PDO::ATTR_EMULATE_PREPARES => false,
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::MYSQL_ATTR_INIT_COMMAND => "SET LC_TIME_NAMES='".$this->DBLocale."'",
-            ];
-
-            $this->pdo = new \PDO($connector, $this->DBuser, $this->DBpwd, $attributes);
-
+            $dsn = "{$this->DBdriver}:host={$this->DBhost};port={$this->DBport};dbname={$this->DBname};charset={$this->DBCodification}";
+            $this->pdo = new PDO($dsn, $this->DBuser, $this->DBpwd);
+            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->connection = true;
-        } catch (\PDOException $e) {
-            echo __LINE__.$e->getMessage();
-        }
-    }
-
-    /**
-     * Function prepareSQL.
-     *
-     * Función que genera una consulta preparada a la base de datos.
-     *
-     * @param string $sql
-     * @param array  $params
-     *
-     * @return void
-     **/
-    private function prepareSQL($sql, $params = '')
-    {
-        try {
-            if (true === $this->connection) {
-                $this->connection();
-            }
-
-            $this->stmt = $this->pdo->prepare($sql);
-
-            //Agrega los parametros al arreglo de parametros
-            $this->addParams($params);
-
-            //Asigna los parametros y el tipo de parametro
-            if (!empty($this->params)) {
-                foreach ($this->params as $param => $value) {
-                    if (is_int($value[1])) {
-                        $type = \PDO::PARAM_INT;
-                    } elseif (is_bool($value[1])) {
-                        $type = \PDO::PARAM_BOOL;
-                    } elseif (is_null($value[1])) {
-                        $type = \PDO::PARAM_NULL;
-                    } else {
-                        $type = \PDO::PARAM_STR;
-                    }
-
-                    $this->stmt->bindParam($value[0], $value[1], $type);
-                }
-            }
-            // Ejecuta la consulta SQL
-            $this->stmt->execute();
-        } catch (\PDOException $e) {
-            echo __LINE__.$e->getMessage();
-        }
-
-        $this->params = []; //Reinicia el arreglo
-    }
-
-    /**
-     * Function addParams.
-     * Función que agrega un parametro bindeado a la consulta.
-     *
-     * @param array $paramsArray
-     *
-     * @return void
-     **/
-    private function addParams($paramsArray)
-    {
-        if (empty($this->params) && is_array($paramsArray)) {
-            $keys = array_keys($paramsArray);
-            foreach ($keys as $x => &$key) {
-                $this->binder($key, $paramsArray[$key]);
-            }
+        } catch (PDOException $e) {
+            // Log the error message
+            error_log("Database connection error: " . $e->getMessage());
+            throw new Exception("Database connection error");
         }
     }
 }
