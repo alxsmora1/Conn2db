@@ -1,6 +1,6 @@
 {
     "name": "nimter/conn2db",
-    "description": "Conexión a base de datos en PHP 7 para las bases de datos postgresql, mariadb y mysql.",
+    "description": "Conexión a base de datos en PHP 8 para las bases de datos postgresql, mariadb y mysql.",
     "type": "library",
     "keywords": ["database", "mariadb"],
     "license" : "MIT",

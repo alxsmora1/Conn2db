@@ -1,7 +1,7 @@
 # Conn2db
 
 ## Descripción
-Conexión a base de datos en PHP 7 para las bases de datos postgresql, mariadb y mysql.
+Conexión a base de datos en PHP 8 para las bases de datos postgresql, mariadb y mysql.
 Conexión ligera y sin abstracciones para asegurar un mejor rendiento en cada consulta, las consultas se realizan de manera explicita.
 
 ## Configuración
