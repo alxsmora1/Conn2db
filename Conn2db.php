@@ -7,7 +7,7 @@
  * @version 1.0.0
  */
 
-namespace Nimter\Helper;
+namespace Nimter\Helper\Conn2db;
 
 /**
  * Class Conn2db.
@@ -17,9 +17,9 @@ namespace Nimter\Helper;
 class Conn2db
 {
     // @var, Driver de la base de datos
-    protected $driver;
+    protected $DBdriver;
     // @var, Host de la base de datos
-    protected $host;
+    protected $DBhost;
     // @var, Puerto de conexión de la base de datos
     protected $DBport;
     // @var, Nombre de la base de datos
@@ -38,6 +38,8 @@ class Conn2db
     protected $params;
     // @bool, Estado de la conexión
     protected $connection = false;
+    // @object, Objeto PDOStatement
+    protected $stmt;
 
     /**
      * Function __constructor.
@@ -46,14 +48,14 @@ class Conn2db
      **/
     public function __construct()
     {
-        $this->DBdriver = getenv('DB_DRIVER');
-        $this->DBhost = getenv('DB_HOST');
-        $this->DBport = getenv('DB_PORT');
-        $this->DBname = getenv('DB_NAME');
-        $this->DBuser = getenv('DB_USER');
-        $this->DBpwd = getenv('DB_PWD');
-        $this->DBCodification = getenv('DB_CODIFICATION');
-        $this->DBLocale = getenv('DB_LOCALE');
+        $this->DBdriver = $_ENV['DB_DRIVER'];
+        $this->DBhost = $_ENV['DB_HOST'];
+        $this->DBport = $_ENV['DB_PORT'];
+        $this->DBname = $_ENV['DB_NAME'];
+        $this->DBuser = $_ENV['DB_USER'];
+        $this->DBpwd = $_ENV['DB_PWD'];
+        $this->DBCodification = $_ENV['DB_CODIFICATION'];
+        $this->DBLocale = $_ENV['DB_LOCALE'];
         $this->params = [];
         $this->connection();
     }
@@ -136,7 +138,7 @@ class Conn2db
     protected function connection()
     {
         try {
-            $connector = $this->DBdriver.':host='.$this->DBhost.';dbname='.$this->DBname.';charset='.$this->DBCodification;
+            $connector = $this->DBdriver.':host='.$this->DBhost.';port='.$this->DBport.';dbname='.$this->DBname.';charset='.$this->DBCodification;
 
             $attributes = [
                 \PDO::ATTR_PERSISTENT => false,
