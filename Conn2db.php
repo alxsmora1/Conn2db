@@ -4,7 +4,7 @@
  *
  * @author Alexis Mora <alexis.mora1v@gmail.com>
  *
- * @version 1.0.0
+ * @version 1.0.9
  */
 
 namespace Nimter\Helper\Conn2db;
