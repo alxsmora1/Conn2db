@@ -1,10 +1,10 @@
 <?php
 /**
- * PHP versión 7.3.0.
+ * PHP versión 8.3.
  *
  * @author Alexis Mora <alexis.mora1v@gmail.com>
  *
- * @version 1.0.9
+ * @version 2.0.0
  */
 
 namespace Nimter\Helper\Conn2db;
@@ -12,42 +12,51 @@ namespace Nimter\Helper\Conn2db;
 /**
  * Class Conn2db.
  *
- * Clase para conectarse a base de datos a través de PDO
+ * Clase para conectarse a base de datos a través de PDO.
+ * Compatible con MySQL, MariaDB y PostgreSQL.
  */
 class Conn2db
 {
-    // @var, Driver de la base de datos
-    protected $DBdriver;
-    // @var, Host de la base de datos
-    protected $DBhost;
-    // @var, Puerto de conexión de la base de datos
-    protected $DBport;
-    // @var, Nombre de la base de datos
-    protected $DBname;
-    // @var, Nombre de usuario de la base de datos
-    protected $DBuser;
-    // @var, Contraseña de la base de datos
-    protected $DBpwd;
-    // @var, Codificación de la base de datos
-    protected $DBCodification;
-    // @var, Hora local de la base de datos
-    private $DBLocale;
-    // @object, Objeto PDO
-    protected $pdo;
-    // @array, Parametros para la consulta
-    protected $params;
-    // @bool, Estado de la conexión
-    protected $connection = false;
-    // @object, Objeto PDOStatement
-    protected $stmt;
+    // Driver de la base de datos
+    protected string $DBdriver;
+    // Host de la base de datos
+    protected string $DBhost;
+    // Puerto de conexión de la base de datos
+    protected string $DBport;
+    // Nombre de la base de datos
+    protected string $DBname;
+    // Nombre de usuario de la base de datos
+    protected string $DBuser;
+    // Contraseña de la base de datos
+    protected string $DBpwd;
+    // Codificación de la base de datos
+    protected string $DBCodification;
+    // Hora local de la base de datos
+    private string $DBLocale;
+    // Objeto PDO
+    protected ?\PDO $pdo = null;
+    // Parámetros para la consulta
+    protected array $params = [];
+    // Estado de la conexión
+    protected bool $connection = false;
+    // Objeto PDOStatement
+    protected ?\PDOStatement $stmt = null;
 
     /**
-     * Function __constructor.
+     * Constructor: carga la configuración desde variables de entorno y establece la conexión.
      *
-     * Función que carga la conexión a la base de datos.
+     * @throws \RuntimeException Si falta alguna variable de entorno requerida.
      **/
     public function __construct()
     {
+        $required = ['DB_DRIVER', 'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PWD', 'DB_CODIFICATION', 'DB_LOCALE'];
+
+        foreach ($required as $key) {
+            if (!isset($_ENV[$key]) || $_ENV[$key] === '') {
+                throw new \RuntimeException("Variable de entorno requerida no definida: {$key}");
+            }
+        }
+
         $this->DBdriver = $_ENV['DB_DRIVER'];
         $this->DBhost = $_ENV['DB_HOST'];
         $this->DBport = $_ENV['DB_PORT'];
@@ -56,37 +65,37 @@ class Conn2db
         $this->DBpwd = $_ENV['DB_PWD'];
         $this->DBCodification = $_ENV['DB_CODIFICATION'];
         $this->DBLocale = $_ENV['DB_LOCALE'];
-        $this->params = [];
+
         $this->connection();
     }
 
     /**
-     * Function query.
+     * Ejecuta una consulta SQL preparada y retorna el resultado adecuado según el tipo.
      *
-     * Función que genera los resultados de la consulta y completa las funciones de la clase.
+     * @param string     $sql       Consulta SQL con placeholders nombrados.
+     * @param array|null $params    Parámetros para la consulta (key => value).
+     * @param int        $fetchmode Modo de fetch de PDO (por defecto FETCH_ASSOC).
      *
-     * @param string $sql
-     * @param array  $params
-     * @param string $fetchmode
+     * @return array|int|null Arreglo de filas para SELECT/SHOW, número de filas afectadas para
+     *                        INSERT/UPDATE/DELETE, o null para otros tipos de consulta.
      *
-     * @return mixed
+     * @throws \PDOException Si ocurre un error en la consulta.
      **/
-    public function query($sql, $params = null, $fetchmode = \PDO::FETCH_ASSOC)
+    public function query(string $sql, ?array $params = null, int $fetchmode = \PDO::FETCH_ASSOC): array|int|null
     {
         $sql = trim(str_replace("\r", ' ', $sql));
 
         $this->prepareSQL($sql, $params);
 
-        $rawStmt = explode(' ', preg_replace("/\s+|\t+|\n+/", ' ', $sql));
+        // Extrae el primer token ignorando espacios múltiples para determinar el tipo de consulta
+        $normalized = (string) preg_replace('/\s+/', ' ', $sql);
+        $firstToken = strtolower(explode(' ', ltrim($normalized))[0]);
 
-        //Determina el tipo de consulta y entrega el resultado adecuado dependiendo de la consulta
-        $cleanStmt = strtolower($rawStmt[0]);
-
-        if ('select' === $cleanStmt || 'show' === $cleanStmt) {
+        if ('select' === $firstToken || 'show' === $firstToken) {
             return $this->stmt->fetchAll($fetchmode);
         }
 
-        if ('insert' === $cleanStmt || 'update' === $cleanStmt || 'delete' === $cleanStmt) {
+        if ('insert' === $firstToken || 'update' === $firstToken || 'delete' === $firstToken) {
             return $this->stmt->rowCount();
         }
 
@@ -94,128 +103,143 @@ class Conn2db
     }
 
     /**
-     * Function binder.
+     * Agrega un parámetro al arreglo interno para ser enlazado en la próxima consulta.
      *
-     * Función recorre los parametros y los añade al arreglo despues de bindearlos.
-     *
-     * @param string $param
-     * @param string $value
-     *
-     * @return void
+     * @param string $param Nombre del parámetro (sin los dos puntos).
+     * @param mixed  $value Valor del parámetro.
      **/
-    public function binder($param, $value)
+    public function binder(string $param, mixed $value): void
     {
-        $this->params[sizeof($this->params)] = [':'.$param, $value];
+        $this->params[] = [':' . $param, $value];
     }
 
     /**
-     * Function lastId.
+     * Retorna el último ID insertado en la sesión actual.
      *
-     * Función retorna el ultimo ID insertado en una transacción.
+     * @param string|null $name Nombre de la secuencia (requerido para PostgreSQL).
      *
-     * @return string - El ultimo ID insertado
+     * @return string|false El último ID insertado, o false si no aplica.
      **/
-    public function lastId()
+    public function lastId(?string $name = null): string|false
     {
-        return $this->pdo->lastInsertId();
+        return $this->pdo->lastInsertId($name);
     }
 
     /**
-     * Function close.
+     * Inicia una transacción.
      *
+     * @throws \PDOException Si ya hay una transacción activa o la BD no soporta transacciones.
+     **/
+    public function beginTransaction(): void
+    {
+        $this->pdo->beginTransaction();
+    }
+
+    /**
+     * Confirma la transacción activa.
+     *
+     * @throws \PDOException Si no hay una transacción activa.
+     **/
+    public function commit(): void
+    {
+        $this->pdo->commit();
+    }
+
+    /**
+     * Revierte la transacción activa.
+     *
+     * @throws \PDOException Si no hay una transacción activa.
+     **/
+    public function rollback(): void
+    {
+        $this->pdo->rollBack();
+    }
+
+    /**
      * Cierra la conexión con el servidor de base de datos.
      **/
-    public function close()
+    public function close(): void
     {
         $this->pdo = null;
+        $this->stmt = null;
+        $this->connection = false;
     }
 
     /**
-     * Function connection.
+     * Configura y establece la conexión a la base de datos.
      *
-     * Función que configura y establece la conexión a la base de datos.
+     * @throws \PDOException Si no se puede establecer la conexión.
      **/
-    protected function connection()
+    protected function connection(): void
     {
-        try {
-            $connector = $this->DBdriver.':host='.$this->DBhost.';port='.$this->DBport.';dbname='.$this->DBname.';charset='.$this->DBCodification;
+        $connector = $this->DBdriver . ':host=' . $this->DBhost
+            . ';port=' . $this->DBport
+            . ';dbname=' . $this->DBname
+            . ';charset=' . $this->DBCodification;
 
-            $attributes = [
-                \PDO::ATTR_PERSISTENT => false,
-                \PDO::ATTR_EMULATE_PREPARES => false,
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::MYSQL_ATTR_INIT_COMMAND => "SET LC_TIME_NAMES='".$this->DBLocale."'",
-            ];
+        $attributes = [
+            \PDO::ATTR_PERSISTENT => false,
+            \PDO::ATTR_EMULATE_PREPARES => false,
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+        ];
 
-            $this->pdo = new \PDO($connector, $this->DBuser, $this->DBpwd, $attributes);
-
-            $this->connection = true;
-        } catch (\PDOException $e) {
-            echo __LINE__.$e->getMessage();
-        }
-    }
-
-    /**
-     * Function prepareSQL.
-     *
-     * Función que genera una consulta preparada a la base de datos.
-     *
-     * @param string $sql
-     * @param array  $params
-     *
-     * @return void
-     **/
-    private function prepareSQL($sql, $params = '')
-    {
-        try {
-            if (true === $this->connection) {
-                $this->connection();
-            }
-
-            $this->stmt = $this->pdo->prepare($sql);
-
-            //Agrega los parametros al arreglo de parametros
-            $this->addParams($params);
-
-            //Asigna los parametros y el tipo de parametro
-            if (!empty($this->params)) {
-                foreach ($this->params as $param => $value) {
-                    if (is_int($value[1])) {
-                        $type = \PDO::PARAM_INT;
-                    } elseif (is_bool($value[1])) {
-                        $type = \PDO::PARAM_BOOL;
-                    } elseif (is_null($value[1])) {
-                        $type = \PDO::PARAM_NULL;
-                    } else {
-                        $type = \PDO::PARAM_STR;
-                    }
-
-                    $this->stmt->bindParam($value[0], $value[1], $type);
-                }
-            }
-            // Ejecuta la consulta SQL
-            $this->stmt->execute();
-        } catch (\PDOException $e) {
-            echo __LINE__.$e->getMessage();
+        // MYSQL_ATTR_INIT_COMMAND solo aplica para MySQL y MariaDB
+        if (in_array(strtolower($this->DBdriver), ['mysql', 'mariadb'], true)) {
+            $safeLocale = preg_replace('/[^a-zA-Z0-9_-]/', '', $this->DBLocale);
+            $attributes[\PDO::MYSQL_ATTR_INIT_COMMAND] = "SET LC_TIME_NAMES='" . $safeLocale . "'";
         }
 
-        $this->params = []; //Reinicia el arreglo
+        $this->pdo = new \PDO($connector, $this->DBuser, $this->DBpwd, $attributes);
+        $this->connection = true;
     }
 
     /**
-     * Function addParams.
-     * Función que agrega un parametro bindeado a la consulta.
+     * Genera y ejecuta una consulta preparada a la base de datos.
      *
-     * @param array $paramsArray
+     * @param string     $sql    Consulta SQL.
+     * @param array|null $params Parámetros de la consulta.
      *
-     * @return void
+     * @throws \PDOException Si ocurre un error en la preparación o ejecución.
      **/
-    private function addParams($paramsArray)
+    private function prepareSQL(string $sql, ?array $params = null): void
+    {
+        if (false === $this->connection) {
+            $this->connection();
+        }
+
+        $this->stmt = $this->pdo->prepare($sql);
+
+        // Agrega los parámetros pasados directamente al método query
+        $this->addParams($params);
+
+        // Enlaza los parámetros con su tipo correspondiente
+        foreach ($this->params as $value) {
+            $type = match (true) {
+                is_int($value[1])  => \PDO::PARAM_INT,
+                is_bool($value[1]) => \PDO::PARAM_BOOL,
+                is_null($value[1]) => \PDO::PARAM_NULL,
+                default            => \PDO::PARAM_STR,
+            };
+
+            // bindValue (no bindParam) para evitar problemas de referencia en bucles
+            $this->stmt->bindValue($value[0], $value[1], $type);
+        }
+
+        $this->stmt->execute();
+
+        $this->params = []; // Reinicia el arreglo de parámetros
+    }
+
+    /**
+     * Transforma un arreglo asociativo de parámetros y los añade al arreglo interno.
+     *
+     * @param array|null $paramsArray Arreglo asociativo (key => value).
+     **/
+    private function addParams(?array $paramsArray): void
     {
         if (empty($this->params) && is_array($paramsArray)) {
-            $keys = array_keys($paramsArray);
-            foreach ($keys as $x => &$key) {
-                $this->binder($key, $paramsArray[$key]);
+            foreach ($paramsArray as $key => $value) {
+                $this->binder((string) $key, $value);
             }
         }
     }
